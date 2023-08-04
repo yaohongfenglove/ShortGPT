@@ -5,6 +5,9 @@ import yt_dlp
 import subprocess
 import json
 
+from config import PROXY_HOST, PROXY_PORT
+
+
 def getYoutubeVideoLink(url):
     if 'shorts' in url:
         ydl_opts = {
@@ -13,7 +16,8 @@ def getYoutubeVideoLink(url):
             "no_color": True,
             "no_call_home": True,
             "no_check_certificate": True,
-            "format": "bestvideo[height<=1920]"
+            "format": "bestvideo[height<=1920]",
+            "proxy": f"http://{PROXY_HOST}:{PROXY_PORT}"
         }
     else:
         ydl_opts = {
@@ -22,17 +26,18 @@ def getYoutubeVideoLink(url):
         "no_color": True,
         "no_call_home": True,
         "no_check_certificate": True,
-        "format": "bestvideo[height<=1080]"
+        "format": "bestvideo[height<=1080]",
+        "proxy": f"http://{PROXY_HOST}:{PROXY_PORT}"
         }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             dictMeta = ydl.extract_info(
                 url,
                 download=False)
-            return dictMeta['url'], dictMeta['duration']
+            return dictMeta['url'], dictMeta['duration'], dictMeta['webpage_url']
     except Exception as e:
         print("Failed getting video link from the following video/url", e.args[0])
-    return None, None
+    return None, None, None
 
 def extract_random_clip_from_video(video_url, video_duration, clip_duration , output_file):
     print(video_url, video_duration, clip_duration , output_file)
@@ -49,11 +54,27 @@ def extract_random_clip_from_video(video_url, video_duration, clip_duration , ou
     if not video_duration*0.7 > 120:
         raise Exception("Video too short")
     start_time = video_duration*0.15 + random.random()* (0.7*video_duration-clip_duration)
-    
+
+    video_file_path = "./temp.mp4"
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "no_color": True,
+        "no_call_home": True,
+        "no_check_certificate": True,
+        "format": "mp4",
+        "outtmpl": video_file_path,
+        "proxy": "http://127.0.0.1:10809"
+    }
+
+    if os.path.exists(video_file_path):
+        os.remove(video_file_path)
+    yt_dlp.YoutubeDL(ydl_opts).download(video_url)
+
     (
         ffmpeg
-        .input(video_url, ss=start_time, t=clip_duration)
-        .output(output_file, codec="libx264", preset="ultrafast")
+        .input(video_file_path, ss=start_time, t=clip_duration)
+        .output(output_file, preset="ultrafast")
         .run()
     )
     if not os.path.exists(output_file):

@@ -1,0 +1,219 @@
+ShortGPT[https://github.com/RayVentura/ShortGPT]部署说明
+（windows系统）
+=========================
+
+
+1.建议先阅读仓库的readme文件
+安裝git+https://github.com/linto-ai/whisper-timestamped是使用以下命令
+pip3 install git+https://github.com/linto-ai/whisper-timestamped
+
+
+2.必须安装的软件python3.x、ffmpeg、ImageMagick
+
+安装ffmpeg之后，程序运行如果遇到module ffmpeg has no attribute input报错，则执行以下命令：
+pip3 uninstall ffmpeg
+pip3 install ffmpeg-python
+
+
+3.需要申请的API密钥
+① OPENAI API KEY：调用chatgpt
+② ELEVEN LABS API KEY：高品质的反向tts（非必须，edge-tts可替代）
+③ PEXELS KEY：pexels素材网的key
+
+
+4.可能会报错的地方
+① 
+问题：openai和yt...工具http超时。
+原因：需要翻墙
+解决：添加代理，proxy=...
+② 
+问题：读取asset_db.json时，其中duration为null
+原因：读取duration时传入的是经过处理的url，没办法得到duration
+解决：把传入的url改为youtube视频链接
+③
+问题：ffmpeg.input(video_url),当传递YouTube url时，会出错
+原因：可能是ffmpeg解析路径的方法有所不同
+解决：把YouTube下载到本地，传递给ffmpeg本地路已经
+④
+问题：verifyParameters验证key为空时，会出错
+原因：是由问题2导致的
+⑤
+问题：[aost#0:1 @ 0000024014e09180] Invalid encoder type 'libx264'
+解决：
+源码如下：
+ffmpeg
+        .input(video_file_path, ss=start_time, t=clip_duration)
+        .output(output_file, codec="libx264", preset="ultrafast")
+        .run()
+把这里的“ codec="libx264" ”删去
+
+
+
+5.源码可能需要改动的地方
+① ShortGPT\shortGPT\audio\audio_duration.py文件中
+第12行  
+get_duration_yt_dlp函数中添加代理，
+原函数为：
+    ydl_opts = {
+    "quiet": True,
+    "no_warnings": True,
+    "no_color": True,
+    "no_call_home": True,
+    "no_check_certificate": True
+}
+修改后为：
+    ydl_opts = {
+    "quiet": True,
+    "no_warnings": True,
+    "no_color": True,
+    "no_call_home": True,
+    "no_check_certificate": True,
+    "proxy": "代理地址"
+}
+
+ShortGPT\shortGPT\audio\audio_duration.py文件中
+getAssetDuration函数中，
+第51行
+多返回一个源视频链接，
+源函数为：
+            url, _ = getYoutubeVideoLink(url)
+修改后为：
+    _, _, webpage_url = getYoutubeVideoLink(url)
+
+第57行
+并通过原视频链接获取duration，
+源函数为：
+duration, err_yt_dlp = get_duration_yt_dlp(url)
+修改后为：
+    duration, err_yt_dlp = get_duration_yt_dlp(webpage_url)
+
+第63行
+函数返回增加返回duration，
+源函数为：
+    return url, None
+修改后为：
+    return url, duration
+
+ShortGPT\shortGPT\audio\audio_duration.py文件中
+getYoutubeAudioLink函数中
+第73行
+添加代理
+源函数为：
+    ydl_opts = {
+    "quiet": True,
+    "no_warnings": True,
+    "no_color": True,
+    "no_call_home": True,
+    "no_check_certificate": True,
+    "format": "bestaudio/best"
+    }
+修改后为：
+    ydl_opts = {
+    "quiet": True,
+    "no_warnings": True,
+    "no_color": True,
+    "no_call_home": True,
+    "no_check_certificate": True,
+    "format": "bestaudio/best",
+    "proxy": "http://127.0.0.1:10809"
+    }
+
+第84行
+函数增加返回dictMeta['url'], dictMeta['duration']，
+源函数为：
+    return None
+修改后为：
+return dictMeta['url'], dictMeta['duration']
+
+
+② ShortGPT\shortGPT\editing_utils\handle_videos.py文件中
+getYoutubeVideoLink函数中
+第16行和第26行
+添加代理，
+源函数为：
+    if 'shorts' in url:
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "no_color": True,
+            "no_call_home": True,
+            "no_check_certificate": True,
+            "format": "bestvideo[height<=1920]"
+        }
+    else:
+        ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "no_color": True,
+        "no_call_home": True,
+        "no_check_certificate": True,
+        "format": "bestvideo[height<=1080]"
+        }
+修改后为：
+    if 'shorts' in url:
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "no_color": True,
+            "no_call_home": True,
+            "no_check_certificate": True,
+            "format": "bestvideo[height<=1920]",
+            "proxy": "http://127.0.0.1:10809"
+        }
+    else:
+        ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "no_color": True,
+        "no_call_home": True,
+        "no_check_certificate": True,
+        "format": "bestvideo[height<=1080]",
+        "proxy": "http://127.0.0.1:10809"
+        }
+		
+第34行
+返回值中多返回一个源视频链接，
+源函数为：
+return dictMeta['url'], dictMeta['duration']
+改为：
+    return dictMeta['url'], dictMeta['duration'], dictMeta['webpage_url']
+
+第37行
+源函数为：
+	return None, None
+修改后为：
+	return None, None, None
+
+extract_random_clip_from_video函数中
+第54行
+添加下载视频到本地，并修改ffmpeg的input视频，且把这里的“ codec="libx264" ”删去
+源函数为：
+    (
+        ffmpeg
+        .input(video_url, ss=start_time, t=clip_duration)
+        .output(output_file, codec="libx264", preset="ultrafast")
+        .run()
+    )
+修改后为：
+    output_File = r".\temp.MP4"
+    ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "no_color": True,
+            "no_call_home": True,
+            "no_check_certificate": True,
+            "format": "mp4",
+            "outtmpl": output_File,
+            "proxy": "http://127.0.0.1:10809"
+    }
+
+    if os.path.exists(output_File):
+        os.remove(output_File)
+    yt_dlp.YoutubeDL(ydl_opts).download(video_url)
+
+    (
+        ffmpeg
+        .input(output_File, ss=start_time, t=clip_duration)
+        .output(output_file, preset="ultrafast")
+        .run()
+    )

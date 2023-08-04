@@ -24,3 +24,6 @@ dist
 build
 setup.py
 test.ipynb
+.idea
+venv
+config.py

@@ -1,3 +1,4 @@
+from config import PROXY_HOST, PROXY_PORT
 from shortGPT.audio.audio_duration import getAssetDuration
 import os
 import subprocess
@@ -14,7 +15,8 @@ def downloadYoutubeAudio(url, outputFile):
         "no_call_home": True,
         "no_check_certificate": True,
         "format": "bestaudio/best",
-        "outtmpl": outputFile
+        "outtmpl": outputFile,
+        "proxy": f"http://{PROXY_HOST}:{PROXY_PORT}"
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

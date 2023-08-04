@@ -1,6 +1,8 @@
 import yt_dlp
 import subprocess
 import json
+
+from config import PROXY_PORT, PROXY_HOST
 from shortGPT.editing_utils.handle_videos import getYoutubeVideoLink
 
 def get_duration_yt_dlp(url):
@@ -9,7 +11,8 @@ def get_duration_yt_dlp(url):
     "no_warnings": True,
     "no_color": True,
     "no_call_home": True,
-    "no_check_certificate": True
+    "no_check_certificate": True,
+    "proxy": f"http://{PROXY_HOST}:{PROXY_PORT}"
 }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -47,19 +50,19 @@ def getAssetDuration(url, isVideo=True):
         if not isVideo:
             url, _ = getYoutubeAudioLink(url)
         else:
-            url, _ = getYoutubeVideoLink(url)
+            _, _, webpage_url = getYoutubeVideoLink(url)
     #Trying two different method to get the duration of the video / audio
     duration, err_ffprobe = get_duration_ffprobe(url)
     if duration is not None:
         return url, duration
 
-    duration, err_yt_dlp = get_duration_yt_dlp(url)
+    duration, err_yt_dlp = get_duration_yt_dlp(webpage_url)
     if duration is not None:
         return url, duration
-    print(err_yt_dlp)
-    print(err_ffprobe)
-    print(f"The url/path {url} does not point to a video/ audio. Impossible to extract its duration")
-    return url, None
+    # print(err_yt_dlp)
+    # print(err_ffprobe)
+    # print(f"The url/path {url} does not point to a video/ audio. Impossible to extract its duration")
+    return url, duration
 
 
 def getYoutubeAudioLink(url):
@@ -69,7 +72,8 @@ def getYoutubeAudioLink(url):
     "no_color": True,
     "no_call_home": True,
     "no_check_certificate": True,
-    "format": "bestaudio/best"
+    "format": "bestaudio/best",
+    "proxy": f"http://{PROXY_HOST}:{PROXY_PORT}"
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -79,4 +83,4 @@ def getYoutubeAudioLink(url):
             return dictMeta['url'], dictMeta['duration']
     except Exception as e:
         print("Failed getting audio link from the following video/url", e.args[0])
-    return None
+    return dictMeta['url'], dictMeta['duration']
